@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { MapPin, User, CreditCard, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -18,8 +19,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { PlaceAutocomplete } from "@/components/checkout/PlaceAutocomplete";
+import { MapPicker } from "@/components/checkout/MapPicker";
 import { useCartStore } from "@/store/cart-store";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const checkoutSchema = z.object({
   customer_name: z.string().min(1, "Name is required"),
@@ -41,14 +44,7 @@ interface LocationOption {
   slug: string;
 }
 
-const QUICK_LOCATIONS = [
-  "hostel-a",
-  "hostel-b",
-  "library",
-  "main-gate",
-  "lecture-hall",
-  "other",
-];
+const CAMPUS_LOCATIONS = ["hostel-a", "hostel-b", "library", "main-gate", "lecture-hall"];
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -85,7 +81,7 @@ export default function CheckoutPage() {
   }, [searchParams]);
 
   const otherLocationId = locations.find((l) => l.slug === "other")?.id;
-  const useCustomLocation = !!form.watch("location_id") && form.watch("location_id") === otherLocationId;
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
 
   const onSubmit = useCallback(
     async (data: CheckoutForm) => {
@@ -138,7 +134,7 @@ export default function CheckoutPage() {
         }
         toast.success("Order placed!");
         router.push(`/order/${json.orderId}`);
-      } catch (e) {
+      } catch {
         toast.error("Something went wrong. Check your connection and try again.");
       } finally {
         setSubmitting(false);
@@ -159,180 +155,275 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="container max-w-lg mx-auto px-4 py-8 pb-24">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Checkout</h1>
-        <p className="text-base text-muted-foreground mt-2">Complete your order</p>
+    <div className="container max-w-lg mx-auto px-4 py-6 pb-28">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Checkout</h1>
+        <p className="text-sm text-muted-foreground mt-1">A few details and you&apos;re done</p>
       </div>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <FormField
-            control={form.control}
-            name="customer_name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Your name" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Phone number</FormLabel>
-                <FormControl>
-                  <Input type="tel" placeholder="07XXXXXXXX" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="location_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Delivery location</FormLabel>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {locations
-                    .filter((loc) => QUICK_LOCATIONS.includes(loc.slug))
-                    .map((loc) => (
-                      <Button
-                        key={loc.id}
-                        type="button"
-                        variant={field.value === loc.id ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => field.onChange(loc.id)}
-                      >
-                        {loc.slug === "other" ? "Add my location" : loc.name}
-                      </Button>
-                    ))}
+          {/* Your details */}
+          <Card className="border border-border rounded-2xl overflow-hidden">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-muted-foreground" />
+                <span className="font-semibold text-foreground">Your details</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="customer_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-muted-foreground">Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Your name" className="h-11" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-muted-foreground">Phone</FormLabel>
+                    <FormControl>
+                      <Input type="tel" placeholder="07XXXXXXXX" className="h-11" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Where to deliver */}
+          <Card className="border border-border rounded-2xl overflow-hidden">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-muted-foreground" />
+                <span className="font-semibold text-foreground">Where to deliver</span>
+              </div>
+              <p className="text-sm text-muted-foreground font-normal mt-1">
+                Pick a campus spot or search your address
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="location_id"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel className="text-muted-foreground text-sm">Campus spot</FormLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {locations
+                        .filter((loc) => CAMPUS_LOCATIONS.includes(loc.slug))
+                        .map((loc) => (
+                          <Button
+                            key={loc.id}
+                            type="button"
+                            variant={field.value === loc.id ? "default" : "outline"}
+                            size="sm"
+                            className={cn(
+                              "min-h-10 rounded-full font-medium",
+                              field.value === loc.id && "ring-2 ring-primary/30"
+                            )}
+                            onClick={() => {
+                              field.onChange(loc.id);
+                              form.setValue("delivery_address", "");
+                            }}
+                          >
+                            {loc.name}
+                          </Button>
+                        ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
                 </div>
-                <FormControl>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
-                  >
-                    <option value="">Select location</option>
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.slug === "other" ? "Add my location" : loc.name}
-                      </option>
-                    ))}
-                  </select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          {useCustomLocation && (
-            <FormField
-              control={form.control}
-              name="delivery_address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Delivery address (search on map)</FormLabel>
-                  <FormControl>
-                    <PlaceAutocomplete
-                      value={field.value}
-                      onChange={field.onChange}
-                      onPlaceSelect={(lat, lng) => {
-                        form.setValue("delivery_lat", lat);
-                        form.setValue("delivery_lng", lng);
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+              <FormField
+                control={form.control}
+                name="delivery_address"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-muted-foreground text-sm">
+                      Select your spot on the map
+                    </FormLabel>
+                    <div className="space-y-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-11 rounded-xl border-2 border-dashed border-primary/40 text-primary hover:bg-primary/5 hover:border-primary"
+                        onClick={() => setMapPickerOpen(true)}
+                      >
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Select on map
+                      </Button>
+                      {field.value && (
+                        <div className="rounded-lg bg-muted/50 border border-border p-3 text-sm">
+                          <p className="font-medium text-foreground line-clamp-2">{field.value}</p>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="mt-2 h-8 text-primary"
+                            onClick={() => setMapPickerOpen(true)}
+                          >
+                            Change location
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <MapPicker
+                      open={mapPickerOpen}
+                      onOpenChange={setMapPickerOpen}
+                      onSelect={(result) => {
+                        field.onChange(result.address);
+                        if (otherLocationId) form.setValue("location_id", otherLocationId);
+                        form.setValue("delivery_lat", result.lat);
+                        form.setValue("delivery_lng", result.lng);
                       }}
-                      placeholder="Type to search address or place…"
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-          <FormField
-            control={form.control}
-            name="delivery_note"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Delivery instruction (optional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g. Call when you arrive" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="special_note"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Special notes (optional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="Dietary or other requests" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                    <p className="text-xs text-muted-foreground">
+                      Or type your address below
+                    </p>
+                    <FormControl>
+                      <PlaceAutocomplete
+                        value={field.value ?? ""}
+                        onChange={(value) => {
+                          field.onChange(value);
+                          if (value && otherLocationId) form.setValue("location_id", otherLocationId);
+                        }}
+                        onPlaceSelect={(lat, lng) => {
+                          if (otherLocationId) form.setValue("location_id", otherLocationId);
+                          form.setValue("delivery_lat", lat);
+                          form.setValue("delivery_lng", lng);
+                        }}
+                        placeholder="Type address to search…"
+                        className="h-11"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Notes (optional) */}
+          <Card className="border border-border rounded-2xl overflow-hidden">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                <span className="font-semibold text-foreground">Notes</span>
+                <span className="text-xs text-muted-foreground font-normal">optional</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="delivery_note"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-muted-foreground text-sm">
+                      Delivery instruction
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Call when you arrive" className="h-11" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="special_note"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-muted-foreground text-sm">
+                      Special requests
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="Dietary or other notes" className="h-11" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Payment */}
           <FormField
             control={form.control}
             name="payment_method"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Payment</FormLabel>
-                <FormControl>
-                  <div className="flex flex-col gap-2">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="payment_method"
-                        value="CASH"
-                        checked={field.value === "CASH"}
-                        onChange={() => field.onChange("CASH")}
-                      />
-                      Cash on delivery
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="payment_method"
-                        value="CARD"
-                        checked={field.value === "CARD"}
-                        onChange={() => field.onChange("CARD")}
-                      />
-                      Pay online (Visa / Mastercard)
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="payment_method"
-                        value="LANKA_QR"
-                        checked={field.value === "LANKA_QR"}
-                        onChange={() => field.onChange("LANKA_QR")}
-                      />
-                      LankaQR
-                    </label>
+              <Card className="border border-border rounded-2xl overflow-hidden">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-semibold text-foreground">Payment</span>
                   </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { value: "CASH" as const, label: "Cash on delivery" },
+                      { value: "CARD" as const, label: "Card (Visa / Mastercard)" },
+                      { value: "LANKA_QR" as const, label: "LankaQR" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => field.onChange(opt.value)}
+                        className={cn(
+                          "flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-colors min-h-12",
+                          field.value === opt.value
+                            ? "border-primary bg-primary/5 text-foreground"
+                            : "border-border bg-muted/30 hover:border-muted-foreground/30"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                            field.value === opt.value ? "border-primary bg-primary" : "border-muted-foreground/50"
+                          )}
+                        >
+                          {field.value === opt.value && (
+                            <span className="h-2 w-2 rounded-full bg-primary-foreground" />
+                          )}
+                        </span>
+                        <span className="font-medium">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <FormMessage />
+                </CardContent>
+              </Card>
             )}
           />
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between py-4">
-              <span className="font-semibold">Total</span>
-              <span>LKR {total()}</span>
-            </CardHeader>
-            <CardContent>
+
+          {/* Total + Submit */}
+          <Card className="border border-border rounded-2xl overflow-hidden sticky bottom-2 shadow-lg">
+            <CardContent className="p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+              <div className="flex justify-between sm:flex-col sm:justify-center gap-1">
+                <span className="text-sm text-muted-foreground">Total</span>
+                <span className="text-xl font-bold text-foreground">LKR {total()}</span>
+              </div>
               <Button
                 type="submit"
-                className="w-full"
+                className="flex-1 sm:flex-none min-h-12 rounded-full font-semibold text-base"
                 size="lg"
                 disabled={submitting}
               >

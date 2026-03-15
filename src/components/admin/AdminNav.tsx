@@ -13,7 +13,11 @@ const links = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
-export function AdminNav() {
+interface AdminNavProps {
+  onNavigate?: () => void;
+}
+
+export function AdminNav({ onNavigate }: AdminNavProps) {
   const pathname = usePathname();
   return (
     <nav className="flex flex-col gap-1">
@@ -21,7 +25,7 @@ export function AdminNav() {
         const Icon = link.icon;
         const active = pathname === link.href;
         return (
-          <Link key={link.href} href={link.href}>
+          <Link key={link.href} href={link.href} onClick={onNavigate}>
             <Button
               variant={active ? "secondary" : "ghost"}
               className={cn(
@@ -35,7 +39,7 @@ export function AdminNav() {
           </Link>
         );
       })}
-      <Link href="/" className="mt-4">
+      <Link href="/" className="mt-4" onClick={onNavigate}>
         <Button variant="outline" className="w-full justify-start font-semibold text-base h-11">
           View site
         </Button>

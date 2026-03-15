@@ -5,6 +5,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateAdmin, createToken, setAuthCookie } from "@/lib/auth";
 
+function isDatabaseError(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const name = (e as { name?: string }).name;
+  const code = (e as { code?: string }).code;
+  if (name === "PrismaClientInitializationError") return true;
+  if (name === "PrismaClientKnownRequestError") return true;
+  if (name === "PrismaClientUnknownRequestError") return true;
+  if (typeof code === "string" && code.startsWith("P")) return true;
+  return false;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -32,15 +43,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error("Login error:", e);
-    const isDbError =
-      e && typeof e === "object" && "code" in e &&
-      (String((e as { code?: string }).code).startsWith("P") || (e as { name?: string }).name === "PrismaClientInitializationError");
+    if (isDatabaseError(e)) {
+      return NextResponse.json(
+        {
+          error:
+            "Database error. Check: 1) DATABASE_URL in .env 2) Database is running 3) Run: npx prisma db push && npm run db:seed",
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
-      {
-        error: isDbError
-          ? "Database connection failed. Check DATABASE_URL and run: npx prisma db push && npm run db:seed"
-          : "Login failed",
-      },
+      { error: "Login failed. Please try again." },
       { status: 500 }
     );
   }

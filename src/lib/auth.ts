@@ -93,6 +93,7 @@ function normalizePhone(value: string): string {
 /**
  * Validate admin credentials and return user if valid.
  * Login with email or phone (admin can use either).
+ * Throws on database errors so the login route can return a clear message.
  */
 export async function validateAdmin(
   emailOrPhone: string,
@@ -101,25 +102,30 @@ export async function validateAdmin(
   const trimmed = emailOrPhone.trim();
   if (!trimmed) return null;
   let user: { id: string; email: string; passwordHash: string; role: string; phone: string | null } | null = null;
-  if (isPhoneLike(trimmed)) {
-    const phoneNorm = normalizePhone(trimmed);
-    user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { phone: phoneNorm },
-          { phone: trimmed.replace(/\D/g, "") },
-        ],
-      },
-    });
-  } else {
-    user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: trimmed },
-          { phone: trimmed },
-        ],
-      },
-    });
+  try {
+    if (isPhoneLike(trimmed)) {
+      const phoneNorm = normalizePhone(trimmed);
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { phone: phoneNorm },
+            { phone: trimmed.replace(/\D/g, "") },
+          ],
+        },
+      });
+    } else {
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: trimmed },
+            { phone: trimmed },
+          ],
+        },
+      });
+    }
+  } catch (err) {
+    console.error("validateAdmin DB error:", err);
+    throw err;
   }
   if (!user || user.role !== "ADMIN") return null;
   const ok = await verifyPassword(password, user.passwordHash);

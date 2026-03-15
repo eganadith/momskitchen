@@ -10,6 +10,10 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 export const metadata: Metadata = {
   title: "Mama's Kitchen - Campus Food Delivery",
   description: "Order meals on campus. Breakfast, lunch, and dinner delivered.",
+  icons: {
+    icon: "/logo.jpeg",
+    apple: "/logo.jpeg",
+  },
 };
 
 export default function RootLayout({
