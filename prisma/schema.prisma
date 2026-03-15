@@ -1,0 +1,133 @@
+// Mama's Kitchen - PostgreSQL schema
+// Prisma schema for campus food delivery service
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+}
+
+enum MealCategory {
+  BREAKFAST
+  LUNCH
+  DINNER
+}
+
+enum PortionSize {
+  NORMAL
+  FULL
+}
+
+enum PaymentMethod {
+  CARD
+  LANKA_QR
+  CASH
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  FAILED
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  phone         String?  @unique
+  passwordHash  String   @map("password_hash")
+  role          Role     @default(ADMIN)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  orders    Order[]
+}
+
+model MenuItem {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  priceNormal Int           @map("price_normal") // LKR
+  priceFull   Int           @map("price_full")  // LKR
+  category    MealCategory
+  image       String?
+  availability Boolean      @default(true)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique @map("order_number")
+  customerName   String        @map("customer_name")
+  phone          String
+  locationId     String        @map("location_id")
+  location       Location      @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  deliveryAddress String?      @map("delivery_address")
+  deliveryLat     Float?       @map("delivery_lat")
+  deliveryLng     Float?       @map("delivery_lng")
+  deliveryNote   String?       @map("delivery_note")
+  specialNote    String?       @map("special_note")
+  paymentMethod  PaymentMethod @map("payment_method")
+  paymentStatus  PaymentStatus @default(UNPAID) @map("payment_status")
+  orderStatus    OrderStatus   @default(PENDING) @map("order_status")
+  mealType       MealCategory  @map("meal_type")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  orderItems     OrderItem[]
+  payment        Payment?
+}
+
+model OrderItem {
+  id         String     @id @default(cuid())
+  orderId    String     @map("order_id")
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String     @map("menu_item_id")
+  menuItem   MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  portion    PortionSize
+  quantity   Int        @default(1)
+  price      Int        // Stored at order time (LKR)
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+model Payment {
+  id                 String        @id @default(cuid())
+  orderId            String        @unique @map("order_id")
+  order              Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  payherePaymentId  String?       @map("payhere_payment_id")
+  amount             Int           // LKR
+  status             PaymentStatus @default(UNPAID)
+  createdAt          DateTime      @default(now()) @map("created_at")
+}
+
+// Key-value config for menu override, order limits, etc.
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   // JSON
+  updatedAt DateTime @updatedAt @map("updated_at")
+}
